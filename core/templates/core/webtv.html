@@ -1,0 +1,454 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Studio Web TV, VOD & Shorts — Zely News{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
+
+    <!-- STUDIO HEADER -->
+    <div class="flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-red-950/60 via-zely-900 to-zely-900 border border-red-500/30 rounded-2xl px-6 py-4">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-red-600 flex items-center justify-center text-white shadow-lg shadow-red-600/40">
+                <i class="fa-solid fa-satellite-dish"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-display font-bold text-xl text-white">Zely Web TV Studio</h1>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-600 text-white animate-pulse">24/7 Live & Replay</span>
+                </div>
+                <p class="text-xs text-slate-400">Directs interactifs, chat plateau en temps réel, émissions VOD et formats verticaux</p>
+            </div>
+        </div>
+        {% if current_video %}
+        <div class="flex flex-wrap items-center gap-2">
+            <button id="audio-only-btn" onclick="toggleAudioRadioMode()"
+                    class="px-3.5 py-2 rounded-xl bg-zely-950 hover:bg-slate-800 border border-slate-700 text-amber-400 font-bold text-xs flex items-center gap-2 transition cursor-pointer">
+                <i class="fa-solid fa-headphones"></i> Mode Radio / Audio Seul
+            </button>
+            <button onclick="openPipPlayer('{{ current_video.title|escapejs }}', '{{ current_video.stream_url|escapejs }}', '{{ current_video.show_name|escapejs }}')"
+                    class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition cursor-pointer">
+                <i class="fa-regular fa-window-restore"></i> Réduire en Picture-in-Picture & Lire les articles
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- MAIN STAGE: VIDEO PLAYER (8 COLS) + LIVE CHAT & REACTIONS (4 COLS) -->
+    {% if current_video %}
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-8 bg-zely-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col justify-between">
+            <div id="studio-video-wrapper" class="relative aspect-video bg-black">
+                <video id="studio-main-video" class="w-full h-full object-cover" controls autoplay playsinline poster="{{ current_video.thumbnail_url }}">
+                    <source id="studio-main-source" src="{{ current_video.stream_url }}" type="video/mp4">
+                </video>
+                <div class="absolute top-4 left-4 flex items-center gap-2 pointer-events-none">
+                    {% if current_video.video_type == 'LIVE' %}
+                        <span class="px-3 py-1 rounded-full text-xs font-bold uppercase bg-red-600 text-white flex items-center gap-1.5 shadow-lg">
+                            <span class="w-2 h-2 rounded-full bg-white animate-ping"></span> EN DIRECT
+                        </span>
+                    {% else %}
+                        <span class="px-3 py-1 rounded-full text-xs font-bold uppercase bg-cyan-600 text-white shadow-lg">
+                            {{ current_video.get_video_type_display }}
+                        </span>
+                    {% endif %}
+                    <span class="px-3 py-1 rounded-full text-xs font-semibold bg-black/70 text-slate-200 backdrop-blur-md">
+                        {{ current_video.show_name }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="p-6 space-y-4">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="space-y-1">
+                        <div class="flex items-center gap-2 text-xs text-cyan-400 font-semibold">
+                            <span>{{ current_video.category.name }}</span>
+                            <span>•</span>
+                            <span>Présenté par {{ current_video.host_name }}</span>
+                        </div>
+                        <h2 id="studio-video-title" class="font-display font-bold text-xl sm:text-2xl text-white">{{ current_video.title }}</h2>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="triggerStudioReaction('🔥')" class="px-3 py-1.5 rounded-xl bg-zely-950 hover:bg-slate-800 border border-slate-800 text-xs font-semibold flex items-center gap-1.5">
+                            🔥 Top
+                        </button>
+                        <button onclick="triggerStudioReaction('👏')" class="px-3 py-1.5 rounded-xl bg-zely-950 hover:bg-slate-800 border border-slate-800 text-xs font-semibold flex items-center gap-1.5">
+                            👏 Bravo
+                        </button>
+                        <button onclick="triggerStudioReaction('⚡')" class="px-3 py-1.5 rounded-xl bg-zely-950 hover:bg-slate-800 border border-slate-800 text-xs font-semibold flex items-center gap-1.5">
+                            ⚡ Débat chaud
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs sm:text-sm text-slate-400 leading-relaxed">
+                    {{ current_video.description }}
+                </p>
+            </div>
+        </div>
+
+        <!-- Live Studio Chat -->
+        <div class="lg:col-span-4 bg-zely-900 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between h-[520px] lg:h-auto shadow-2xl">
+            <div class="border-b border-slate-800 pb-3 flex items-center justify-between">
+                <div>
+                    <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+                        <i class="fa-solid fa-comments text-red-500"></i> Chat du Plateau
+                    </h3>
+                    <p class="text-[11px] text-slate-400">Vos questions sont relayées à l'antenne</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-bold">
+                    {{ current_video.viewers_count }} en ligne
+                </span>
+            </div>
+
+            <div id="studio-chat-box" class="flex-grow overflow-y-auto space-y-2.5 my-4 pr-1 text-xs">
+                {% for msg in chat_messages %}
+                <div class="bg-zely-950/90 border border-slate-800/80 rounded-xl p-2.5">
+                    <div class="flex items-center justify-between mb-0.5">
+                        <span class="font-bold {{ msg.user_color }}">{{ msg.user_name }}</span>
+                        <span class="text-[10px] text-slate-500">{{ msg.created_at|date:"H:i" }}</span>
+                    </div>
+                    <p class="text-slate-200">{{ msg.message }}</p>
+                </div>
+                {% endfor %}
+            </div>
+
+            <form onsubmit="sendStudioChatMessage(event)" class="space-y-2 pt-2 border-t border-slate-800">
+                <div class="flex items-center gap-2">
+                    <input type="text" id="studio-chat-user" value="Spectateur_Zely" placeholder="Votre pseudo"
+                           class="w-1/3 bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-cyan-400 font-semibold focus:outline-none">
+                    <input type="text" id="studio-chat-input" required placeholder="Posez une question au plateau..."
+                           class="w-2/3 bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500">
+                </div>
+                <button type="submit" class="w-full py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition">
+                    Envoyer en direct sur le chat
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- QUESTIONS DIRECTES AU PLATEAU (INTERACTIVE STUDIO Q&A) -->
+    <section class="bg-zely-900 border border-slate-800 rounded-3xl p-6 space-y-5 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-rose-600 flex items-center justify-center text-slate-950 text-lg font-bold shadow-lg">
+                    <i class="fa-solid fa-microphone-lines"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-bold text-xl text-white">Questions Directes au Plateau (Q&A Antenne)</h2>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            Vote des Spectateurs
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Posez votre question aux invités ou votez pour celles que vous souhaitez voir affichées en direct à l'écran</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <!-- Submit Question Form (4 cols) -->
+            <form onsubmit="submitStudioQuestion(event)" class="lg:col-span-4 bg-zely-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <h3 class="font-display font-bold text-sm text-white flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane text-cyan-400"></i> Poser une question à l'émission
+                </h3>
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="sq-user" value="{% if request.user.is_authenticated %}{{ request.user.username }}{% else %}Spectateur_Zely{% endif %}" placeholder="Votre nom"
+                           class="bg-zely-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                    <input type="text" id="sq-city" value="{% if current_profile and current_profile.city %}{{ current_profile.city }}{% else %}Paris{% endif %}" placeholder="Votre ville"
+                           class="bg-zely-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:border-cyan-500 focus:outline-none">
+                </div>
+                <input type="text" id="sq-show" value="{% if current_video %}{{ current_video.show_name }}{% else %}Zely Live 24/7{% endif %}"
+                       class="w-full bg-zely-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-cyan-400 font-semibold focus:outline-none">
+                <textarea id="sq-question" rows="3" required placeholder="Votre question pour le journaliste ou l'invité en plateau..."
+                          class="w-full bg-zely-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none"></textarea>
+                <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-600 text-white font-display font-bold text-xs shadow-lg cursor-pointer">
+                    Envoyer ma question en Régie (+10 pts)
+                </button>
+                <div id="sq-feedback" class="hidden text-xs font-bold text-emerald-400 text-center"></div>
+            </form>
+
+            <!-- Upvotable Questions List (8 cols) -->
+            <div id="studio-questions-list" class="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {% for q in studio_questions %}
+                <div class="p-4 rounded-2xl bg-zely-950 border {% if q.is_answered_on_air %}border-emerald-500/50 bg-emerald-950/15{% else %}border-slate-800{% endif %} flex flex-col justify-between space-y-3">
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[11px] font-bold text-cyan-400">{{ q.user_name }} <span class="text-slate-500 font-normal">({{ q.user_handle }})</span></span>
+                            {% if q.is_answered_on_air %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                ✅ Répondu à l'antenne
+                            </span>
+                            {% else %}
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                📡 En régie
+                            </span>
+                            {% endif %}
+                        </div>
+                        <p class="text-xs font-semibold text-white leading-relaxed">« {{ q.question_text }} »</p>
+                        {% if q.host_reply %}
+                        <div class="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-[11px] text-emerald-200">
+                            <strong class="text-emerald-400">Réponse Plateau :</strong> {{ q.host_reply }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                        <span class="text-slate-500">{{ q.show_name }}</span>
+                        <button onclick="upvoteStudioQuestion({{ q.id }})" class="px-2.5 py-1 rounded-lg bg-zely-900 hover:bg-slate-800 border border-slate-700 text-amber-400 font-bold flex items-center gap-1.5 transition cursor-pointer">
+                            <i class="fa-solid fa-thumbs-up"></i> Voter (<span id="sq-votes-{{ q.id }}">{{ q.upvotes }}</span>)
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-span-2 p-6 text-center text-xs text-slate-500">Aucune question soumise pour le moment. Soyez le premier !</div>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+
+    <!-- INTERACTIVE TV SCHEDULE (GRILLE DES PROGRAMMES) -->
+    {% if tv_schedule %}
+    <section class="bg-zely-900 border border-slate-800 rounded-3xl p-6 space-y-4 shadow-xl">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-3">
+            <div>
+                <h2 class="font-display font-bold text-xl text-white flex items-center gap-2">
+                    <i class="fa-regular fa-calendar-check text-cyan-400"></i> Grille des Programmes Interactive (24/7)
+                </h2>
+                <p class="text-xs text-slate-400">Tous nos plateaux incluent des sessions questions/réponses en direct avec les spectateurs connectés</p>
+            </div>
+            <span class="px-3 py-1 rounded-full bg-red-500/15 text-red-400 border border-red-500/30 text-xs font-bold">
+                Antenne Continue
+            </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {% for item in tv_schedule %}
+            <div class="rounded-2xl p-4 border transition flex flex-col justify-between {% if item.is_on_air %}bg-gradient-to-b from-red-950/60 to-zely-950 border-red-500/50 shadow-lg shadow-red-600/10{% else %}bg-zely-950/80 border-slate-800/80 hover:border-slate-700{% endif %}">
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[11px] font-bold {% if item.is_on_air %}text-red-400{% else %}text-cyan-400{% endif %}">{{ item.time_slot }}</span>
+                        {% if item.is_on_air %}
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-red-600 text-white animate-pulse">À l'antenne</span>
+                        {% elif item.is_interactive %}
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-semibold bg-slate-800 text-slate-300">Interactif</span>
+                        {% endif %}
+                    </div>
+                    <h3 class="font-display font-bold text-sm text-white leading-snug">{{ item.show_title }}</h3>
+                    <p class="text-[11px] text-slate-400 line-clamp-2">{{ item.description }}</p>
+                </div>
+                <div class="pt-3 mt-3 border-t border-slate-800/70 flex items-center justify-between text-[11px]">
+                    <span class="text-slate-300 font-medium truncate">{{ item.host_name }}</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded border {{ item.category.badge_bg }}">{{ item.category.name|truncatechars:12 }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- SHORTS CAROUSEL -->
+    <section class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="font-display font-bold text-xl text-white flex items-center gap-2">
+                <i class="fa-solid fa-mobile-screen-button text-pink-500"></i> Formats Courts Verticaux (Shorts / Reels)
+            </h2>
+            <span class="text-xs text-slate-400">Cliquez pour lancer la lecture</span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+            {% for short in short_videos %}
+            <div onclick="loadStudioVideo('{{ short.title|escapejs }}', '{{ short.stream_url|escapejs }}', '{{ short.thumbnail_url|escapejs }}')"
+                 class="group relative aspect-[9/16] rounded-2xl overflow-hidden bg-zely-900 border border-slate-800 hover:border-pink-500 cursor-pointer shadow-xl">
+                <img src="{{ short.thumbnail_url }}" alt="{{ short.title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent"></div>
+                <span class="absolute top-3 left-3 px-2 py-0.5 rounded bg-pink-600 text-white text-[10px] font-bold">SHORT</span>
+                <div class="absolute bottom-3 left-3 right-3">
+                    <span class="text-[10px] text-cyan-400 font-semibold">{{ short.category.name }}</span>
+                    <h4 class="text-xs font-bold text-white line-clamp-2">{{ short.title }}</h4>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- FULL VOD CATALOG -->
+    <section class="space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="font-display font-bold text-xl text-white flex items-center gap-2">
+                <i class="fa-solid fa-film text-cyan-400"></i> Catalogue des Replays & Émissions (VOD)
+            </h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for vod in vod_videos %}
+            <div class="group bg-zely-900 border border-slate-800 hover:border-cyan-500/40 rounded-2xl overflow-hidden flex flex-col justify-between">
+                <div>
+                    <div class="relative aspect-video bg-black overflow-hidden">
+                        <img src="{{ vod.thumbnail_url }}" alt="{{ vod.title }}" class="w-full h-full object-cover group-hover:scale-105 transition">
+                        <div class="absolute inset-0 bg-black/30 flex items-center justify-center">
+                            <a href="{% url 'webtv_hub' %}?watch={{ vod.slug }}"
+                               class="w-12 h-12 rounded-full bg-red-600 text-white flex items-center justify-center shadow-lg group-hover:scale-110 transition">
+                                <i class="fa-solid fa-play ml-0.5"></i>
+                            </a>
+                        </div>
+                        <span class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/80 text-white text-[11px] font-semibold">{{ vod.duration }}</span>
+                    </div>
+                    <div class="p-4 space-y-1.5">
+                        <div class="text-[11px] text-cyan-400 font-semibold">{{ vod.show_name }} • {{ vod.category.name }}</div>
+                        <a href="{% url 'webtv_hub' %}?watch={{ vod.slug }}" class="block font-display font-bold text-sm text-white group-hover:text-cyan-400">
+                            {{ vod.title }}
+                        </a>
+                        <p class="text-xs text-slate-400 line-clamp-2">{{ vod.description }}</p>
+                    </div>
+                </div>
+                <div class="px-4 py-2.5 bg-zely-950/60 border-t border-slate-800 flex items-center justify-between text-xs">
+                    <span class="text-slate-400">{{ vod.viewers_count }} vues</span>
+                    <button onclick="openPipPlayer('{{ vod.title|escapejs }}', '{{ vod.stream_url|escapejs }}', '{{ vod.show_name|escapejs }}')"
+                            class="text-cyan-400 hover:underline font-semibold">
+                        <i class="fa-regular fa-window-restore mr-1"></i> PiP
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+        function triggerStudioReaction(emoji) {
+        const wrapper = document.getElementById('studio-video-wrapper');
+        if (!wrapper) return;
+        const el = document.createElement('div');
+        el.className = 'floating-emoji text-3xl';
+        el.textContent = emoji;
+        el.style.right = (20 + Math.random() * 60) + 'px';
+        wrapper.appendChild(el);
+        setTimeout(() => el.remove(), 1400);
+    }
+
+    let isAudioRadioMode = false;
+    function toggleAudioRadioMode() {
+        const wrapper = document.getElementById('studio-video-wrapper');
+        const btn = document.getElementById('audio-only-btn');
+        if (!wrapper) return;
+        isAudioRadioMode = !isAudioRadioMode;
+        if (isAudioRadioMode) {
+            wrapper.classList.add('h-24', 'aspect-auto');
+            wrapper.classList.remove('aspect-video');
+            btn.classList.add('bg-amber-500', 'text-slate-950');
+            btn.innerHTML = '<i class="fa-solid fa-tv"></i> Retour Vidéo HD';
+        } else {
+            wrapper.classList.remove('h-24', 'aspect-auto');
+            wrapper.classList.add('aspect-video');
+            btn.classList.remove('bg-amber-500', 'text-slate-950');
+            btn.innerHTML = '<i class="fa-solid fa-headphones"></i> Mode Radio / Audio Seul';
+        }
+    }
+
+    async function submitStudioQuestion(e) {
+        e.preventDefault();
+        const user_name = document.getElementById('sq-user').value;
+        const user_city = document.getElementById('sq-city').value;
+        const show_name = document.getElementById('sq-show').value;
+        const qInput = document.getElementById('sq-question');
+        if (!qInput.value.trim()) return;
+
+        const res = await fetch('/api/webtv/question/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({
+                user_name,
+                show_name,
+                question_text: qInput.value.trim(),
+            })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            qInput.value = '';
+            const fb = document.getElementById('sq-feedback');
+            fb.textContent = 'Question transmise à la régie ! (+15 pts)';
+            fb.classList.remove('hidden');
+            const list = document.getElementById('studio-questions-list');
+            const card = document.createElement('div');
+            card.className = 'p-4 rounded-2xl bg-zely-950 border border-cyan-500/50 flex flex-col justify-between space-y-3';
+            card.innerHTML = `
+                <div class="space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[11px] font-bold text-cyan-400">${data.question.user_name} <span class="text-slate-500 font-normal">(${data.question.user_handle})</span></span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">📡 En régie</span>
+                    </div>
+                    <p class="text-xs font-semibold text-white leading-relaxed">« ${data.question.question_text} »</p>
+                </div>
+                <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">
+                    <span class="text-slate-500">${data.question.show_name}</span>
+                    <button onclick="upvoteStudioQuestion(${data.question.id})" class="px-2.5 py-1 rounded-lg bg-zely-900 border border-slate-700 text-amber-400 font-bold">
+                        <i class="fa-solid fa-thumbs-up"></i> Voter (<span id="sq-votes-${data.question.id}">${data.question.upvotes}</span>)
+                    </button>
+                </div>
+            `;
+            list.prepend(card);
+        }
+    }
+
+    async function upvoteStudioQuestion(qid) {
+        const res = await fetch(`/api/webtv/question/${qid}/upvote/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            const el = document.getElementById(`sq-votes-${qid}`);
+            if (el) el.textContent = data.upvotes;
+        }
+    }
+
+    function loadStudioVideo(title, streamUrl, posterUrl) {
+        const video = document.getElementById('studio-main-video');
+        const source = document.getElementById('studio-main-source');
+        const titleEl = document.getElementById('studio-video-title');
+        if (titleEl) titleEl.textContent = title;
+        if (posterUrl) video.poster = posterUrl;
+        source.src = streamUrl;
+        video.load();
+        video.play().catch(() => {});
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function sendStudioChatMessage(e) {
+        e.preventDefault();
+        const user = document.getElementById('studio-chat-user').value;
+        const input = document.getElementById('studio-chat-input');
+        const box = document.getElementById('studio-chat-box');
+        if (!input.value.trim()) return;
+
+        const res = await fetch('/api/chat/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ user_name: user, message: input.value })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            const div = document.createElement('div');
+            div.className = 'bg-zely-950 border border-cyan-500/40 rounded-xl p-2.5';
+            div.innerHTML = `
+                <div class="flex items-center justify-between mb-0.5">
+                    <span class="font-bold ${data.message.user_color}">${data.message.user_name}</span>
+                    <span class="text-[10px] text-slate-400">${data.message.time}</span>
+                </div>
+                <p class="text-slate-100">${data.message.message}</p>
+            `;
+            box.appendChild(div);
+            box.scrollTop = box.scrollHeight;
+            input.value = '';
+            triggerStudioReaction('💬');
+        }
+    }
+</script>
+{% endblock %}

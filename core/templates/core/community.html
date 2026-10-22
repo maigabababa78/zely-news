@@ -1,0 +1,160 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Le Pouls Citoyen & Journalisme Participatif — Zely News{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+
+    <!-- HERO BANNER -->
+    <div class="rounded-3xl bg-gradient-to-r from-purple-950/70 via-zely-900 to-cyan-950/50 border border-purple-500/30 p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl">
+        <div class="space-y-3 max-w-2xl">
+            <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                <i class="fa-solid fa-users-rays"></i> Connexion Utilisateurs & Rédaction
+            </span>
+            <h1 class="font-display font-bold text-2xl sm:text-4xl text-white">
+                Le Pouls Citoyen : Vous êtes au cœur de l'info
+            </h1>
+            <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+                Partagez des témoignages de terrain, envoyez vos vidéos ou alertes locales, votez aux grands référendums d'actualité et débattez directement avec nos journalistes.
+            </p>
+        </div>
+        <button onclick="openCitizenModal()"
+                class="shrink-0 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-slate-950 font-display font-bold text-sm shadow-xl shadow-cyan-500/25 flex items-center gap-2.5 transition cursor-pointer">
+            <i class="fa-solid fa-plus-circle text-base"></i> Publier un témoignage / vidéo
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+        <!-- Left 8 Cols: Citizen Reports Feed -->
+        <div class="lg:col-span-8 space-y-6">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h2 class="font-display font-bold text-xl text-white flex items-center gap-2">
+                    <i class="fa-solid fa-tower-broadcast text-cyan-400"></i> En Direct du Terrain (Reporters Citoyens)
+                </h2>
+                <span class="text-xs text-slate-400">{{ citizen_reports|length }} témoignages vérifiés</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for report in citizen_reports %}
+                <div class="bg-zely-900 border border-slate-800 hover:border-cyan-500/40 rounded-2xl overflow-hidden flex flex-col justify-between shadow-lg transition">
+                    <div>
+                        <div class="relative h-48 overflow-hidden bg-black">
+                            <img src="{{ report.media_url }}" alt="{{ report.title }}" class="w-full h-full object-cover">
+                            <div class="absolute top-3 left-3 flex items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border backdrop-blur-md {{ report.category.badge_bg }}">
+                                    {{ report.category.name }}
+                                </span>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/75 text-white border border-white/15">
+                                    {{ report.get_media_type_display }}
+                                </span>
+                            </div>
+                            <div class="absolute bottom-3 left-3 px-2.5 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-xs text-cyan-400 font-semibold flex items-center gap-1.5">
+                                <i class="fa-solid fa-location-dot text-red-400"></i> {{ report.location }}
+                            </div>
+                        </div>
+
+                        <div class="p-5 space-y-2.5">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="font-bold text-slate-200">{{ report.reporter_name }} <span class="text-slate-500 font-normal">({{ report.reporter_handle }})</span></span>
+                                <span class="text-emerald-400 text-[11px] font-semibold"><i class="fa-solid fa-circle-check mr-1"></i>Vérifié</span>
+                            </div>
+                            <h3 class="font-display font-bold text-base text-white">{{ report.title }}</h3>
+                            <p class="text-xs text-slate-300 leading-relaxed">{{ report.description }}</p>
+                        </div>
+                    </div>
+
+                    <div class="px-5 py-3 bg-zely-950/60 border-t border-slate-800 flex items-center justify-between text-xs">
+                        <span class="text-slate-500">{{ report.created_at|date:"d/m/Y H:i" }}</span>
+                        <button onclick="upvoteCitizenReport({{ report.id }})"
+                                class="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-fire"></i> Soutenir (<span id="cr-upvotes-{{ report.id }}">{{ report.upvotes }}</span>)
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Right 4 Cols: Top Contributors Leaderboard + Polls & Recent Community Debates -->
+        <div class="lg:col-span-4 space-y-6">
+            {% if top_contributors %}
+            <div class="bg-zely-900 border border-slate-800 rounded-2xl p-5 space-y-4 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+                        <i class="fa-solid fa-medal text-amber-400"></i> Top Reporters Citoyens
+                    </h3>
+                    <span class="text-[11px] text-amber-400 font-semibold">Badges & Impact</span>
+                </div>
+                <div class="space-y-3">
+                    {% for member in top_contributors %}
+                    <div class="bg-zely-950/90 border border-slate-800/80 rounded-xl p-3 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3 truncate">
+                            <img src="{{ member.avatar_url }}" alt="{{ member.name }}" class="w-10 h-10 rounded-full object-cover border border-cyan-500/40 shrink-0">
+                            <div class="truncate">
+                                <div class="text-xs font-bold text-white flex items-center gap-1.5">
+                                    <span>{{ member.name }}</span>
+                                    <span class="text-[10px] text-slate-500 font-normal">{{ member.handle }}</span>
+                                </div>
+                                <div class="text-[11px] text-cyan-400 font-medium truncate">{{ member.role_badge }}</div>
+                                <div class="text-[10px] text-slate-500">{{ member.reports_count }} alertes • {{ member.debates_count }} avis</div>
+                            </div>
+                        </div>
+                        <div class="shrink-0 text-right">
+                            <span class="px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-300 border border-amber-500/30 text-xs font-bold">
+                                {{ member.points }} pts
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="bg-zely-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+                    <i class="fa-solid fa-square-poll-vertical text-purple-400"></i> Consultations & Votes
+                </h3>
+                {% for poll in polls %}
+                <div class="bg-zely-950 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="text-xs font-bold text-white">{{ poll.question }}</div>
+                    <div class="space-y-2">
+                        {% for opt in poll.options.all %}
+                        <button onclick="votePoll({{ poll.id }}, {{ opt.id }})"
+                                class="w-full text-left group relative overflow-hidden rounded-xl border border-slate-800 hover:border-cyan-500/50 bg-zely-900 p-2.5 transition">
+                            <div id="poll-bar-{{ opt.id }}" class="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-500/25 to-purple-500/25 transition-all duration-500"
+                                 style="width: {{ opt.percentage }}%"></div>
+                            <div class="relative z-10 flex items-center justify-between text-xs">
+                                <span class="font-medium text-slate-200">{{ opt.text }}</span>
+                                <span id="poll-pct-{{ opt.id }}" class="font-bold text-cyan-400">{{ opt.percentage }}% ({{ opt.votes }})</span>
+                            </div>
+                        </button>
+                        {% endfor %}
+                    </div>
+                    <div id="poll-total-{{ poll.id }}" class="text-[11px] text-slate-500">{{ poll.total_votes }} votes exprimés</div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="bg-zely-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                <h3 class="font-display font-bold text-lg text-white flex items-center gap-2">
+                    <i class="fa-solid fa-comments text-cyan-400"></i> Dernières Prises de Position
+                </h3>
+                <div class="space-y-3">
+                    {% for c in recent_comments %}
+                    <a href="{% url 'article_detail' c.article.slug %}" class="block bg-zely-950 hover:bg-slate-900 border border-slate-800 rounded-xl p-3 space-y-1.5 transition">
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="font-bold text-cyan-400">{{ c.user_name }}</span>
+                            <span class="text-slate-500">{{ c.user_badge }}</span>
+                        </div>
+                        <p class="text-xs text-slate-200 line-clamp-2">« {{ c.content }} »</p>
+                        <div class="text-[10px] text-slate-500 truncate">Sur : {{ c.article.title }}</div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

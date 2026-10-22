@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#06b6d4">
+    <link rel="manifest" href="/manifest.json">
+    <title>{% block title %}Zely News — L'Info Textuelle & Web TV Connectée{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Space Grotesk', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        zely: {
+                            950: '#07090e',
+                            900: '#0c101a',
+                            800: '#151c2c',
+                            700: '#1f2940',
+                            accent: '#06b6d4',
+                            live: '#ef4444',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            background-color: #07090e;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+        h1, h2, h3, .font-display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        /* Breaking news ticker animation */
+        @keyframes ticker {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+        .animate-ticker {
+            display: inline-flex;
+            white-space: nowrap;
+            animation: ticker 32s linear infinite;
+        }
+        .animate-ticker:hover {
+            animation-play-state: paused;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0c101a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2940;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+        /* Floating reaction animation */
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(0.8); opacity: 1; }
+            100% { transform: translateY(-90px) scale(1.4); opacity: 0; }
+        }
+        .floating-emoji {
+            position: absolute;
+            bottom: 60px;
+            right: 20px;
+            pointer-events: none;
+            animation: floatUp 1.4s ease-out forwards;
+            z-index: 50;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col bg-zely-950 text-slate-100 selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- 1. BREAKING NEWS TICKER BAR -->
+    <div class="bg-gradient-to-r from-red-950/90 via-slate-900 to-zely-900 border-b border-red-500/20 text-xs py-1.5 px-4 flex items-center justify-between overflow-hidden">
+        <div class="flex items-center space-x-3 overflow-hidden w-full">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider bg-red-600 text-white shrink-0 shadow-lg shadow-red-600/30">
+                <span class="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                Flash Info
+            </span>
+            <div class="overflow-hidden relative w-full">
+                <div class="animate-ticker items-center space-x-8 text-slate-200">
+                    {% for item in breaking_articles %}
+                        <a href="{% url 'article_detail' item.slug %}" class="hover:text-cyan-400 transition inline-flex items-center gap-2">
+                            <span class="text-red-400 font-semibold">[{{ item.category.name }}]</span>
+                            <span>{{ item.title }}</span>
+                            <span class="text-slate-600">•</span>
+                        </a>
+                    {% empty %}
+                        <span>Bienvenue sur Zely News : l'information hybride Texte & Web TV connectée en temps réel avec sa communauté.</span>
+                    {% endfor %}
+                    {% for item in breaking_articles %}
+                        <a href="{% url 'article_detail' item.slug %}" class="hover:text-cyan-400 transition inline-flex items-center gap-2">
+                            <span class="text-red-400 font-semibold">[{{ item.category.name }}]</span>
+                            <span>{{ item.title }}</span>
+                            <span class="text-slate-600">•</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="hidden md:flex items-center gap-4 shrink-0 ml-4 text-slate-400">
+            <span class="flex items-center gap-1.5 text-emerald-400 font-medium">
+                <i class="fa-solid fa-users text-[10px]"></i>
+                <span id="online-users-counter">2 845</span> connectés
+            </span>
+        </div>
+    </div>
+
+    <!-- 2. MAIN NAVIGATION HEADER -->
+    <header class="sticky top-0 z-40 backdrop-blur-xl bg-zely-900/85 border-b border-slate-800/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 gap-4">
+                <!-- Brand Logo -->
+                <div class="flex items-center gap-6">
+                    <a href="{% url 'home' %}" class="flex items-center gap-2.5 group">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20 group-hover:scale-105 transition">
+                            <span class="font-display font-bold text-xl text-white tracking-tighter">Z</span>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-display font-bold text-xl tracking-tight text-white">ZELY</span>
+                                <span class="font-display font-bold text-xl tracking-tight text-cyan-400">NEWS</span>
+                            </div>
+                            <span class="block text-[10px] uppercase tracking-widest text-slate-400 -mt-1">Texte • Web TV • Citoyen</span>
+                        </div>
+                    </a>
+
+                    <!-- Mode Switcher Pills -->
+                    <nav class="hidden lg:flex items-center bg-zely-950/90 p-1 rounded-xl border border-slate-800">
+                        <a href="{% url 'home' %}" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 {% if request.resolver_match.url_name == 'home' or request.resolver_match.url_name == 'article_detail' %}bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20{% else %}text-slate-300 hover:text-white{% endif %}">
+                            <i class="fa-regular fa-newspaper"></i> Mode Texte & Hybride
+                        </a>
+                        <a href="{% url 'webtv_hub' %}" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 {% if request.resolver_match.url_name == 'webtv_hub' %}bg-red-600 text-white shadow-md shadow-red-600/30{% else %}text-slate-300 hover:text-white{% endif %}">
+                            <span class="w-2 h-2 rounded-full bg-red-500 {% if request.resolver_match.url_name == 'webtv_hub' %}bg-white{% endif %} animate-pulse"></span>
+                            Web TV & Shorts
+                        </a>
+                        <a href="{% url 'sport_hub' %}" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 {% if request.resolver_match.url_name == 'sport_hub' or request.resolver_match.url_name == 'match_detail' %}bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30{% else %}text-emerald-400 hover:text-white{% endif %}">
+                            <i class="fa-solid fa-futbol"></i> Foot • Score en direct & ZeMercato
+                        </a>
+                        <a href="{% url 'community_hub' %}" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-2 {% if request.resolver_match.url_name == 'community_hub' %}bg-purple-600 text-white shadow-md shadow-purple-600/30{% else %}text-slate-300 hover:text-white{% endif %}">
+                            <i class="fa-solid fa-tower-broadcast"></i> Le Pouls Citoyen
+                        </a>
+                    </nav>
+                </div>
+
+                <!-- Search & Quick Actions -->
+                <div class="flex items-center gap-3">
+                    <form action="{% url 'home' %}" method="get" class="relative hidden sm:block">
+                        <input type="text" name="q" value="{{ search_query|default:'' }}" placeholder="Rechercher un sujet, direct..."
+                            class="w-48 lg:w-64 bg-zely-950/90 border border-slate-800 focus:border-cyan-500 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none transition">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                    </form>
+
+                    <!-- Trigger PiP Web TV anywhere -->
+                    {% if global_live %}
+                    <button onclick="openPipPlayer('{{ global_live.title|escapejs }}', '{{ global_live.stream_url|escapejs }}', '{{ global_live.show_name|escapejs }}')"
+                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 text-xs font-semibold transition cursor-pointer"
+                        title="Regarder le Direct en Picture-in-Picture tout en lisant">
+                        <i class="fa-solid fa-tv"></i>
+                        <span class="hidden sm:inline">Direct PiP</span>
+                    </button>
+                    {% endif %}
+
+                    <!-- Button to open Citizen Report Modal -->
+                    <button onclick="openCitizenModal()"
+                        class="hidden sm:inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-semibold text-xs shadow-lg shadow-cyan-500/20 transition cursor-pointer">
+                        <i class="fa-solid fa-camera-retro"></i>
+                        <span>Témoigner</span>
+                    </button>
+
+                    <!-- Studio Rédaction & Régie Link -->
+                    <a href="{% url 'editorial_studio' %}"
+                       class="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-xs font-bold transition"
+                       title="Studio Rédaction & Régie Direct">
+                        <i class="fa-solid fa-sliders"></i>
+                        <span>Régie</span>
+                    </a>
+
+                    <!-- Notification Bell Dropdown -->
+                    <div class="relative">
+                        <button onclick="toggleNotifDropdown()"
+                                class="relative w-9 h-9 rounded-xl bg-zely-950 hover:bg-slate-800 border border-slate-800 flex items-center justify-center text-slate-300 hover:text-cyan-400 transition cursor-pointer"
+                                title="Centre de notifications en direct">
+                            <i class="fa-regular fa-bell text-sm"></i>
+                            {% if unread_notif_count > 0 %}
+                            <span id="notif-badge-count" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-600 text-white text-[9px] font-extrabold flex items-center justify-center">
+                                {{ unread_notif_count }}
+                            </span>
+                            {% endif %}
+                        </button>
+                        <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 sm:w-96 bg-zely-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50">
+                            <div class="px-4 py-3 bg-zely-950 border-b border-slate-800 flex items-center justify-between">
+                                <span class="font-display font-bold text-xs text-white flex items-center gap-1.5">
+                                    <i class="fa-solid fa-bolt text-amber-400"></i> Alertes & Notifications Live
+                                </span>
+                                <button onclick="markNotificationsRead()" class="text-[10px] text-cyan-400 hover:underline font-semibold">
+                                    Tout marquer lu
+                                </button>
+                            </div>
+                            <div class="divide-y divide-slate-800/80 max-h-72 overflow-y-auto">
+                                {% for n in global_notifications %}
+                                <a href="{{ n.link_url }}" class="block px-4 py-2.5 hover:bg-slate-800/60 transition">
+                                    <div class="flex items-center justify-between text-[10px] mb-0.5">
+                                        <span class="font-bold text-cyan-400">{{ n.get_notif_type_display }}</span>
+                                        <span class="text-slate-500">{{ n.created_at|date:"H:i" }}</span>
+                                    </div>
+                                    <div class="text-xs text-slate-200 font-medium line-clamp-2">{{ n.title }}</div>
+                                </a>
+                                {% empty %}
+                                <div class="p-4 text-center text-xs text-slate-500">Aucune notification récente.</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User Account / Connected Space Dropdown Menu -->
+                    {% if user.is_authenticated and current_profile %}
+                    <div class="relative">
+                        <button onclick="toggleUserMenuDropdown()"
+                                class="inline-flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded-xl bg-zely-950 hover:bg-slate-800 border border-cyan-500/40 text-xs font-semibold text-white transition shadow-md cursor-pointer">
+                            <img src="{{ current_profile.avatar_url }}" alt="{{ current_profile.get_name }}" class="w-6 h-6 rounded-lg object-cover border border-cyan-400">
+                            <span class="truncate max-w-[90px]">{{ current_profile.get_name }}</span>
+                            <span class="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[10px] font-extrabold">{{ current_profile.reputation_points }}</span>
+                            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+                        </button>
+
+                        <div id="user-menu-dropdown" class="hidden absolute right-0 mt-2 w-64 bg-zely-900 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden z-50">
+                            <div class="px-4 py-3 bg-zely-950 border-b border-slate-800">
+                                <div class="font-display font-bold text-xs text-white truncate">{{ current_profile.get_name }}</div>
+                                <div class="text-[11px] text-cyan-400 font-medium truncate">{{ current_profile.handle }} • {{ current_profile.favorite_club }}</div>
+                            </div>
+                            <div class="py-1.5 text-xs font-medium text-slate-200 divide-y divide-slate-800/60">
+                                <div class="space-y-0.5 px-1.5 pb-1.5">
+                                    <a href="{% url 'user_dashboard_section' 'flux' %}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800/80 transition">
+                                        <i class="fa-solid fa-wand-magic-sparkles text-cyan-400 w-4 text-center"></i>
+                                        <span>Mon Flux Sur-Mesure</span>
+                                    </a>
+                                    <a href="{% url 'user_dashboard_section' 'sport' %}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800/80 transition">
+                                        <i class="fa-solid fa-futbol text-emerald-400 w-4 text-center"></i>
+                                        <span>Mon Club & Matchs Suivis</span>
+                                    </a>
+                                    <a href="{% url 'user_dashboard_section' 'favoris' %}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800/80 transition">
+                                        <i class="fa-solid fa-bookmark text-amber-400 w-4 text-center"></i>
+                                        <span>Mes Favoris & Watchlist</span>
+                                    </a>
+                                    <a href="{% url 'user_dashboard_section' 'contributions' %}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800/80 transition">
+                                        <i class="fa-solid fa-tower-broadcast text-purple-400 w-4 text-center"></i>
+                                        <span>Mes Contributions Citoyennes</span>
+                                    </a>
+                                    <a href="{% url 'user_dashboard_section' 'parametres' %}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl hover:bg-slate-800/80 transition">
+                                        <i class="fa-solid fa-gear text-slate-400 w-4 text-center"></i>
+                                        <span>Profil & Préférences</span>
+                                    </a>
+                                </div>
+                                <div class="pt-1.5 px-1.5">
+                                    <a href="{% url 'logout' %}" class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-400 hover:bg-rose-950/40 transition font-semibold">
+                                        <i class="fa-solid fa-right-from-bracket w-4 text-center"></i>
+                                        <span>Se déconnecter</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <a href="{% url 'login' %}"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zely-950 hover:bg-slate-800 border border-slate-700 hover:border-cyan-500/50 text-xs font-semibold text-slate-200 transition">
+                        <i class="fa-regular fa-user text-cyan-400"></i>
+                        <span>Connexion / Inscription</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Category Domains Bar -->
+            <div class="flex items-center justify-between py-2 border-t border-slate-800/60 overflow-x-auto no-scrollbar gap-2">
+                <div class="flex items-center gap-1.5 shrink-0">
+                    <a href="{% url 'home' %}"
+                       class="px-3 py-1 rounded-lg text-xs font-medium transition {% if not active_category %}bg-slate-800 text-cyan-400 border border-cyan-500/30{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/50{% endif %}">
+                        <i class="fa-solid fa-globe mr-1"></i> Toute l'actu
+                    </a>
+                    {% for cat in global_categories %}
+                        <a href="{% if cat.slug == 'sport-esport' %}{% url 'sport_hub' %}{% elif request.resolver_match.url_name == 'webtv_hub' %}{% url 'webtv_hub' %}?category={{ cat.slug }}{% elif request.resolver_match.url_name == 'community_hub' %}{% url 'community_hub' %}?category={{ cat.slug }}{% else %}{% url 'home' %}?category={{ cat.slug }}{% endif %}"
+                           class="px-3 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1.5 {% if active_category and active_category.slug == cat.slug or cat.slug == 'sport-esport' and request.resolver_match.url_name == 'sport_hub' %}bg-slate-800 text-white border border-cyan-400/50 shadow-sm{% else %}text-slate-400 hover:text-slate-200 hover:bg-slate-800/40{% endif %}">
+                            <i class="fa-solid {{ cat.icon }} text-[11px]" style="color: {{ cat.color }}"></i>
+                            <span>{{ cat.name }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+
+                <!-- Mobile Navigation Switcher -->
+                <div class="flex lg:hidden items-center gap-1 shrink-0 ml-auto">
+                    <a href="{% url 'home' %}" class="px-2.5 py-1 rounded text-[11px] font-semibold {% if request.resolver_match.url_name == 'home' %}bg-cyan-500 text-slate-950{% else %}text-slate-400 bg-slate-900{% endif %}">Texte</a>
+                    <a href="{% url 'webtv_hub' %}" class="px-2.5 py-1 rounded text-[11px] font-semibold {% if request.resolver_match.url_name == 'webtv_hub' %}bg-red-600 text-white{% else %}text-slate-400 bg-slate-900{% endif %}">Web TV</a>
+                    <a href="{% url 'sport_hub' %}" class="px-2.5 py-1 rounded text-[11px] font-semibold {% if request.resolver_match.url_name == 'sport_hub' %}bg-emerald-500 text-slate-950{% else %}text-emerald-400 bg-slate-900{% endif %}">Foot</a>
+                    <a href="{% url 'community_hub' %}" class="px-2.5 py-1 rounded text-[11px] font-semibold {% if request.resolver_match.url_name == 'community_hub' %}bg-purple-600 text-white{% else %}text-slate-400 bg-slate-900{% endif %}">Citoyen</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 3. MAIN CONTENT AREA -->
+    <main class="flex-grow">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 4. FLOATING PICTURE-IN-PICTURE (PiP) WEB TV MINI-PLAYER -->
+    <div id="zely-pip-player" class="fixed bottom-5 right-5 z-50 w-80 sm:w-96 bg-zely-900 border border-slate-700/90 rounded-2xl shadow-2xl shadow-black/80 overflow-hidden hidden transition-all duration-300">
+        <div class="bg-zely-950 px-3.5 py-2 flex items-center justify-between border-b border-slate-800">
+            <div class="flex items-center gap-2 truncate">
+                <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                <span id="pip-show-badge" class="text-[11px] font-bold uppercase tracking-wider text-red-400">Zely TV Direct</span>
+                <span class="text-slate-600">•</span>
+                <span id="pip-video-title" class="text-xs text-slate-200 font-medium truncate">Émission en cours</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <a href="{% url 'webtv_hub' %}" class="text-slate-400 hover:text-cyan-400 text-xs" title="Ouvrir dans le Studio Web TV">
+                    <i class="fa-solid fa-expand"></i>
+                </a>
+                <button onclick="closePipPlayer()" class="text-slate-400 hover:text-red-400 text-sm ml-1">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+        <div class="relative aspect-video bg-black">
+            <video id="pip-video-element" class="w-full h-full object-cover" controls playsinline>
+                <source id="pip-video-source" src="{% if global_live %}{{ global_live.stream_url }}{% endif %}" type="video/mp4">
+            </video>
+        </div>
+        <div class="px-3.5 py-2 bg-zely-900/95 flex items-center justify-between text-[11px] text-slate-400">
+            <span>Mode Lecture Continue (PiP)</span>
+            <button onclick="requestNativePiP()" class="text-cyan-400 hover:underline font-medium flex items-center gap-1">
+                <i class="fa-regular fa-window-restore"></i> Fenêtre système
+            </button>
+        </div>
+    </div>
+
+    <!-- 5. CITIZEN JOURNALISM SUBMISSION MODAL -->
+    <div id="citizen-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="bg-zely-900 border border-slate-700/80 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl">
+            <div class="px-6 py-4 bg-gradient-to-r from-cyan-950/60 to-zely-900 border-b border-slate-800 flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                        <i class="fa-solid fa-tower-broadcast"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-display font-bold text-base text-white">Reporter Citoyen Zely</h3>
+                        <p class="text-xs text-slate-400">Partagez une info locale, une vidéo ou un témoignage en direct</p>
+                    </div>
+                </div>
+                <button onclick="closeCitizenModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <form id="citizen-report-form" onsubmit="submitCitizenReport(event)" class="p-6 space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Votre nom ou pseudo *</label>
+                        <input type="text" id="cr-reporter" required placeholder="Ex: Karim L."
+                            class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Lieu / Ville *</label>
+                        <input type="text" id="cr-location" required placeholder="Ex: Lyon, Presqu'île"
+                            class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Domaine *</label>
+                        <select id="cr-category" class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                            {% for cat in global_categories %}
+                                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-slate-300 mb-1">Format du témoignage</label>
+                        <select id="cr-media-type" class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                            <option value="PHOTO">Photo sur le vif</option>
+                            <option value="VIDEO">Témoignage Vidéo</option>
+                            <option value="TEXT">Alerte Info Locale</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Titre de l'alerte ou de l'événement *</label>
+                    <input type="text" id="cr-title" required placeholder="Que se passe-t-il près de chez vous ?"
+                        class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Lien image/vidéo (optionnel)</label>
+                    <input type="url" id="cr-media-url" placeholder="https://... (une image d'illustration sera attribuée si vide)"
+                        class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Récit détaillé / Témoignage *</label>
+                    <textarea id="cr-description" rows="3" required placeholder="Décrivez les faits avec précision..."
+                        class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:border-cyan-500 focus:outline-none"></textarea>
+                </div>
+                <div id="cr-feedback" class="hidden text-xs font-medium p-2.5 rounded-xl"></div>
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button type="button" onclick="closeCitizenModal()" class="px-4 py-2 rounded-xl border border-slate-700 text-xs text-slate-300 hover:bg-slate-800">
+                        Annuler
+                    </button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-500/20 hover:opacity-95">
+                        Publier en direct
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 6. REAL-TIME GOAL ALERT OVERLAY ("⚽ BUUUUT !") -->
+    <div id="zely-goal-toast-container" class="fixed top-20 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+    <!-- 7. FOOTER -->
+    <footer class="bg-zely-900 border-t border-slate-800/80 mt-16 py-10 text-xs text-slate-400">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-7 h-7 rounded-lg bg-cyan-500 flex items-center justify-center text-slate-950 font-display font-bold">Z</div>
+                <span class="text-slate-200 font-semibold">Zely News</span>
+                <span>— Média Hybride Texte & Web TV Interactif.</span>
+            </div>
+            <div class="flex items-center gap-6">
+                <a href="{% url 'home' %}" class="hover:text-cyan-400">Articles</a>
+                <a href="{% url 'webtv_hub' %}" class="hover:text-cyan-400">Web TV & Shorts</a>
+                <a href="{% url 'community_hub' %}" class="hover:text-cyan-400">Journalisme Participatif</a>
+                <a href="/admin/" class="hover:text-cyan-400">Studio Admin</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- GLOBAL INTERACTIVE SCRIPTS -->
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        // Picture-in-Picture (PiP) Web TV Controller
+        function openPipPlayer(title, streamUrl, showName) {
+            const container = document.getElementById('zely-pip-player');
+            const video = document.getElementById('pip-video-element');
+            const source = document.getElementById('pip-video-source');
+            const titleEl = document.getElementById('pip-video-title');
+            const badgeEl = document.getElementById('pip-show-badge');
+
+            if (title) titleEl.textContent = title;
+            if (showName) badgeEl.textContent = showName;
+            if (streamUrl && source.src !== streamUrl) {
+                source.src = streamUrl;
+                video.load();
+            }
+            container.classList.remove('hidden');
+            video.play().catch(() => {});
+            localStorage.setItem('zely_pip_open', '1');
+            localStorage.setItem('zely_pip_title', title || '');
+            localStorage.setItem('zely_pip_url', streamUrl || '');
+            localStorage.setItem('zely_pip_show', showName || '');
+        }
+
+        function closePipPlayer() {
+            const container = document.getElementById('zely-pip-player');
+            const video = document.getElementById('pip-video-element');
+            video.pause();
+            container.classList.add('hidden');
+            localStorage.removeItem('zely_pip_open');
+        }
+
+        async function requestNativePiP() {
+            const video = document.getElementById('pip-video-element');
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else if (document.pictureInPictureEnabled) {
+                    await video.requestPictureInPicture();
+                }
+            } catch (e) {
+                console.warn('PiP non supporté:', e);
+            }
+        }
+
+        // Restore PiP across page navigation so user can keep watching while reading articles
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('zely_pip_open') === '1') {
+                const title = localStorage.getItem('zely_pip_title');
+                const url = localStorage.getItem('zely_pip_url');
+                const show = localStorage.getItem('zely_pip_show');
+                if (url) openPipPlayer(title, url, show);
+            }
+        });
+
+        // Citizen Report Modal
+        function openCitizenModal() {
+            const modal = document.getElementById('citizen-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeCitizenModal() {
+            const modal = document.getElementById('citizen-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        async function submitCitizenReport(e) {
+            e.preventDefault();
+            const payload = {
+                reporter_name: document.getElementById('cr-reporter').value,
+                location: document.getElementById('cr-location').value,
+                category_id: document.getElementById('cr-category').value,
+                media_type: document.getElementById('cr-media-type').value,
+                title: document.getElementById('cr-title').value,
+                media_url: document.getElementById('cr-media-url').value,
+                description: document.getElementById('cr-description').value,
+            };
+
+            const res = await fetch('/api/citizen/submit/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            const feedback = document.getElementById('cr-feedback');
+            if (data.status === 'ok') {
+                feedback.className = 'text-xs font-medium p-2.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                feedback.textContent = 'Votre témoignage a été publié en direct sur Zely News ! Redirection...';
+                feedback.classList.remove('hidden');
+                setTimeout(() => {
+                    window.location.href = '/communaute/';
+                }, 900);
+            } else {
+                feedback.className = 'text-xs font-medium p-2.5 rounded-xl bg-red-500/20 text-red-300 border border-red-500/30';
+                feedback.textContent = data.message || 'Erreur lors de la publication.';
+                feedback.classList.remove('hidden');
+            }
+        }
+
+        // Poll Voting
+        async function votePoll(pollId, optionId) {
+            const res = await fetch(`/api/polls/${pollId}/vote/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: JSON.stringify({ option_id: optionId })
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                const totalEl = document.getElementById(`poll-total-${pollId}`);
+                if (totalEl) totalEl.textContent = `${data.total_votes} votes`;
+                data.options.forEach(opt => {
+                    const bar = document.getElementById(`poll-bar-${opt.id}`);
+                    const pct = document.getElementById(`poll-pct-${opt.id}`);
+                    if (bar) bar.style.width = `${opt.percentage}%`;
+                    if (pct) pct.textContent = `${opt.percentage}% (${opt.votes})`;
+                });
+            }
+        }
+
+        // Upvote Citizen Report
+        async function upvoteCitizenReport(reportId) {
+            const res = await fetch(`/api/citizen/${reportId}/upvote/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            const data = await res.json();
+            if (data.status === 'ok') {
+                const el = document.getElementById(`cr-upvotes-${reportId}`);
+                if (el) el.textContent = data.upvotes;
+            }
+        }
+
+        // Toggle Article Bookmark (Save for later in User Connected Space)
+        async function toggleBookmarkArticle(articleId, btnEl) {
+            const res = await fetch(`/api/user/bookmark/article/${articleId}/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            if (res.status === 401) {
+                window.location.href = '/connexion/';
+                return;
+            }
+            const data = await res.json();
+            if (data.status === 'ok') {
+                if (btnEl) {
+                    if (data.saved) {
+                        btnEl.classList.add('text-amber-400');
+                        btnEl.classList.remove('text-slate-300', 'text-slate-400');
+                    } else {
+                        btnEl.classList.remove('text-amber-400');
+                        btnEl.classList.add('text-slate-300');
+                    }
+                }
+                const dashCounter = document.getElementById('dash-saved-count');
+                if (dashCounter) dashCounter.textContent = data.count;
+            }
+        }
+
+        // =========================================================================
+        // REAL-TIME LIVESCORE PULSE & GOAL ALERT SYSTEM (Audio + Visual Toast)
+        // =========================================================================
+        let zelySoundMuted = localStorage.getItem('zely_goal_mute') === '1';
+
+        function playGoalChime(isFavoriteClub) {
+            if (zelySoundMuted) return;
+            try {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                const ctx = new AudioCtx();
+                const notes = isFavoriteClub ? [523.25, 659.25, 783.99, 1046.5] : [587.33, 880.0];
+                notes.forEach((freq, idx) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.13);
+                    gain.gain.setValueAtTime(0.18, ctx.currentTime + idx * 0.13);
+                    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.13 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(ctx.currentTime + idx * 0.13);
+                    osc.stop(ctx.currentTime + idx * 0.13 + 0.36);
+                });
+            } catch (e) {}
+        }
+
+        function showGoalAlertToast(alertData) {
+            const container = document.getElementById('zely-goal-toast-container');
+            if (!container) return;
+
+            playGoalChime(alertData.is_favorite_club);
+
+            const toast = document.createElement('div');
+            const borderClass = alertData.is_favorite_club
+                ? 'border-amber-400 bg-gradient-to-r from-amber-950/95 via-emerald-950/95 to-zely-900 shadow-amber-500/30'
+                : 'border-emerald-400 bg-gradient-to-r from-emerald-950/95 via-zely-900 to-zely-950 shadow-emerald-500/20';
+
+            toast.className = `pointer-events-auto border-2 ${borderClass} rounded-2xl p-4 shadow-2xl transition-all duration-500 transform translate-x-0`;
+            toast.innerHTML = `
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase ${alertData.is_favorite_club ? 'bg-amber-400 text-slate-950' : 'bg-emerald-500 text-slate-950'}">
+                        ⚽ BUUUUT EN DIRECT ! ${alertData.is_favorite_club ? '★ VOTRE CLUB' : ''}
+                    </span>
+                    <span class="text-xs font-extrabold text-red-400">${alertData.minute || ''}</span>
+                </div>
+                <div class="font-display font-extrabold text-base text-white">
+                    ${alertData.home_team} <span class="text-emerald-400 px-1">${alertData.home_score} - ${alertData.away_score}</span> ${alertData.away_team}
+                </div>
+                <div class="text-xs text-slate-300 mt-1 flex items-center justify-between">
+                    <span>🎯 <strong>${alertData.player || 'Buteur'}</strong> (${alertData.scoring_team})</span>
+                    <a href="/sport/" class="text-cyan-400 hover:underline font-bold text-[11px]">Match Center →</a>
+                </div>
+            `;
+            container.prepend(toast);
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-x-8');
+                setTimeout(() => toast.remove(), 500);
+            }, 7500);
+        }
+
+        async function pollRealTimeMatches(extraParams = '') {
+            try {
+                const res = await fetch('/api/sport/live-pulse/' + extraParams);
+                const data = await res.json();
+                if (data.status !== 'ok') return;
+
+                // Update sync badge if present on Sport Hub
+                const syncBadge = document.getElementById('livescore-sync-status');
+                if (syncBadge) {
+                    syncBadge.textContent = `Synchro Temps Réel (${data.source}) • ${data.synced_at}`;
+                }
+
+                // Trigger Goal Alerts if any
+                if (data.alert_enabled && data.goal_alerts && data.goal_alerts.length > 0) {
+                    data.goal_alerts.forEach(alert => showGoalAlertToast(alert));
+                }
+
+                // Update all match rows & home ribbon cards in DOM
+                data.matches.forEach(m => {
+                    const hScoreEls = document.querySelectorAll(`.live-hscore-${m.id}`);
+                    const aScoreEls = document.querySelectorAll(`.live-ascore-${m.id}`);
+                    const minEls = document.querySelectorAll(`.live-min-${m.id}`);
+
+                    hScoreEls.forEach(el => {
+                        const newVal = m.status === 'UPCOMING' ? '-' : String(m.home_score);
+                        if (el.textContent.trim() !== newVal) {
+                            el.textContent = newVal;
+                            el.classList.add('scale-125', 'text-amber-300');
+                            setTimeout(() => el.classList.remove('scale-125', 'text-amber-300'), 1500);
+                        }
+                    });
+                    aScoreEls.forEach(el => {
+                        const newVal = m.status === 'UPCOMING' ? '-' : String(m.away_score);
+                        if (el.textContent.trim() !== newVal) {
+                            el.textContent = newVal;
+                            el.classList.add('scale-125', 'text-amber-300');
+                            setTimeout(() => el.classList.remove('scale-125', 'text-amber-300'), 1500);
+                        }
+                    });
+                    minEls.forEach(el => {
+                        el.textContent = m.minute;
+                    });
+
+                    // If this match is currently open in the Match Center, refresh its scoreboard & stats
+                    if (typeof currentMatchId !== 'undefined' && currentMatchId === m.id) {
+                        const mcH = document.getElementById('mc-home-score');
+                        const mcA = document.getElementById('mc-away-score');
+                        const mcMin = document.getElementById('mc-minute');
+                        if (mcH) mcH.textContent = m.status === 'UPCOMING' ? '-' : m.home_score;
+                        if (mcA) mcA.textContent = m.status === 'UPCOMING' ? '-' : m.away_score;
+                        if (mcMin) mcMin.innerHTML = `<span class="w-2 h-2 rounded-full bg-white animate-ping"></span> ${m.minute}`;
+                        if (data.goal_alerts && data.goal_alerts.some(a => a.match_id === m.id) && typeof selectMatchCenter === 'function') {
+                            selectMatchCenter(m.id);
+                        }
+                    }
+                });
+            } catch (e) {}
+        }
+
+        // Auto-poll every 10 seconds across Zely News
+        setInterval(() => pollRealTimeMatches(), 10000);
+
+        // Notification & User Menu Dropdown Controllers
+        function toggleNotifDropdown() {
+            const d = document.getElementById('notif-dropdown');
+            const u = document.getElementById('user-menu-dropdown');
+            if (u) u.classList.add('hidden');
+            if (d) d.classList.toggle('hidden');
+        }
+
+        function toggleUserMenuDropdown() {
+            const u = document.getElementById('user-menu-dropdown');
+            const d = document.getElementById('notif-dropdown');
+            if (d) d.classList.add('hidden');
+            if (u) u.classList.toggle('hidden');
+        }
+
+        async function markNotificationsRead() {
+            await fetch('/api/notifications/read/', {
+                method: 'POST',
+                headers: { 'X-CSRFToken': getCookie('csrftoken') }
+            });
+            const badge = document.getElementById('notif-badge-count');
+            if (badge) badge.remove();
+        }
+
+        // Register PWA Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

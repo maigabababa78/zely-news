@@ -1,0 +1,779 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Zely Foot & Sport — Score en direct, Match Center & ZeMercato{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+
+    <!-- 1. TOP SPORT & MERCATO HEADER BAR -->
+    <div class="rounded-3xl bg-gradient-to-r from-emerald-950/80 via-zely-900 to-cyan-950/60 border border-emerald-500/30 p-5 sm:p-6 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-2xl">
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center text-slate-950 text-xl font-bold shadow-lg shadow-emerald-500/30">
+                <i class="fa-solid fa-futbol"></i>
+            </div>
+            <div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <h1 class="font-display font-bold text-xl sm:text-2xl text-white tracking-tight">ZELY FOOT & SPORT</h1>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-500 text-slate-950">Score en direct 24/7</span>
+                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-500 text-slate-950">ZeMercato Live</span>
+                    <span id="livescore-sync-status" class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-zely-950 text-cyan-400 border border-cyan-500/30">
+                        Synchro Temps Réel Active (10s)
+                    </span>
+                </div>
+                <p class="text-xs text-slate-300 mt-0.5">
+                    Résultats en direct seconde par seconde, Match Center tactique, Mercato exclusif et pronostics de la communauté.
+                </p>
+                <div class="flex flex-wrap items-center gap-2 pt-2">
+                    <button onclick="openProvidersModal()"
+                            class="px-3 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-[11px] font-bold text-emerald-300 flex items-center gap-1.5 transition cursor-pointer">
+                        <i class="fa-solid fa-plug-circle-check"></i> Connecteurs API (Gratuit & Pro)
+                    </button>
+                    <button onclick="pollRealTimeMatches('?force_external=1')"
+                            class="px-3 py-1 rounded-xl bg-zely-950 hover:bg-slate-800 border border-cyan-500/40 text-[11px] font-bold text-cyan-400 flex items-center gap-1.5 transition cursor-pointer">
+                        <i class="fa-solid fa-rotate"></i> Synchroniser Cascade Live
+                    </button>
+                    <button onclick="pollRealTimeMatches('?simulate_goal=1')"
+                            class="px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-[11px] font-bold text-amber-300 flex items-center gap-1.5 transition cursor-pointer">
+                        ⚽ Tester une Alerte BUT en Direct
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Competition Filter Pills (LiveScore style) -->
+        <div class="flex items-center gap-1.5 overflow-x-auto w-full lg:w-auto pb-1 lg:pb-0">
+            <a href="{% url 'sport_hub' %}"
+               class="px-3 py-1.5 rounded-xl text-xs font-bold shrink-0 transition {% if not active_comp %}bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20{% else %}bg-zely-950 text-slate-300 border border-slate-800 hover:border-emerald-500/40{% endif %}">
+                🌍 Toutes les compétitions
+            </a>
+            {% for comp in competitions %}
+            <a href="{% url 'sport_hub' %}?comp={{ comp.slug }}"
+               class="px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition flex items-center gap-1.5 {% if active_comp and active_comp.slug == comp.slug %}bg-emerald-500 text-slate-950 font-bold shadow-md{% else %}bg-zely-950 text-slate-300 border border-slate-800 hover:border-emerald-500/40{% endif %}">
+                <span>{{ comp.flag_emoji }}</span>
+                <span>{{ comp.name }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- 2. MAIN 2-COLUMN ARENA: LIVESCORE BOARD (8 COLS) + STANDINGS & TOP SCORERS (4 COLS) -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- ============================================================== -->
+        <!-- COLUMN 1 (8 COLS): LIVESCORE ENGINE (Cliquez sur un match pour ouvrir sa page dédiée) -->
+        <!-- ============================================================== -->
+        <div class="lg:col-span-8 bg-zely-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div class="p-4 sm:p-5 bg-zely-950 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                    <div>
+                        <h2 class="font-display font-bold text-sm sm:text-base uppercase tracking-wider text-white">Score en direct — Résultats & Directs</h2>
+                        <p class="text-[11px] text-slate-400">Sélectionnez une rencontre pour ouvrir sa page dédiée (Temps forts, Stats, Compositions 2D)</p>
+                    </div>
+                </div>
+
+                <!-- Status Filter Tabs (Tous / En Direct / Terminés / À venir) -->
+                <div class="grid grid-cols-4 gap-1 bg-zely-900 p-1 rounded-xl border border-slate-800 text-[11px] font-bold text-center shrink-0">
+                    <a href="{% url 'sport_hub' %}{% if active_comp %}?comp={{ active_comp.slug }}{% endif %}"
+                       class="px-3 py-1.5 rounded-lg transition {% if not status_filter %}bg-emerald-500 text-slate-950{% else %}text-slate-400 hover:text-white{% endif %}">
+                        Tous ({{ matches|length }})
+                    </a>
+                    <a href="{% url 'sport_hub' %}?status=LIVE{% if active_comp %}&comp={{ active_comp.slug }}{% endif %}"
+                       class="px-3 py-1.5 rounded-lg transition flex items-center justify-center gap-1 {% if status_filter == 'LIVE' %}bg-red-600 text-white{% else %}text-red-400 hover:text-white{% endif %}">
+                        <span class="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></span> Direct
+                    </a>
+                    <a href="{% url 'sport_hub' %}?status=FT{% if active_comp %}&comp={{ active_comp.slug }}{% endif %}"
+                       class="px-3 py-1.5 rounded-lg transition {% if status_filter == 'FT' %}bg-slate-700 text-white{% else %}text-slate-400 hover:text-white{% endif %}">
+                        Terminés
+                    </a>
+                    <a href="{% url 'sport_hub' %}?status=UPCOMING{% if active_comp %}&comp={{ active_comp.slug }}{% endif %}"
+                       class="px-3 py-1.5 rounded-lg transition {% if status_filter == 'UPCOMING' %}bg-cyan-500 text-slate-950{% else %}text-slate-400 hover:text-white{% endif %}">
+                        À venir
+                    </a>
+                </div>
+            </div>
+
+            <!-- Matches List Grouped by Competition -->
+            <div class="divide-y divide-slate-800/70">
+                {% regroup matches by competition as competition_list %}
+                {% for comp_group in competition_list %}
+                    <!-- Competition Sticky Subheader -->
+                    <div class="px-5 py-2.5 bg-zely-950/90 flex items-center justify-between text-xs font-bold text-slate-200">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm">{{ comp_group.grouper.flag_emoji }}</span>
+                            <span>{{ comp_group.grouper.name }}</span>
+                            <span class="text-[10px] text-slate-500 font-normal">({{ comp_group.grouper.country }})</span>
+                        </div>
+                        <a href="{% url 'sport_hub' %}?comp={{ comp_group.grouper.slug }}" class="text-[11px] text-emerald-400 hover:underline">
+                            Voir le classement →
+                        </a>
+                    </div>
+
+                    {% for m in comp_group.list %}
+                    <a href="{% url 'match_detail' m.id %}"
+                       id="match-row-{{ m.id }}"
+                       class="match-row px-4 sm:px-5 py-3.5 hover:bg-slate-800/50 transition flex items-center justify-between gap-4 group">
+                        <!-- Status / Minute Column -->
+                        <div class="w-16 shrink-0 text-center">
+                            {% if m.status == 'LIVE' %}
+                                <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-red-500/20 text-red-400 border border-red-500/40 text-xs font-extrabold">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span><span class="live-min-{{ m.id }}">{{ m.minute }}</span>
+                                </span>
+                            {% elif m.status == 'HT' %}
+                                <span class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-400 text-xs font-bold">MT</span>
+                            {% elif m.status == 'FT' %}
+                                <span class="text-xs font-bold text-slate-400">Terminé</span>
+                            {% else %}
+                                <span class="px-2.5 py-1 rounded-lg bg-slate-800 text-cyan-400 text-xs font-semibold live-min-{{ m.id }}">{{ m.minute }}</span>
+                            {% endif %}
+                        </div>
+
+                        <!-- Teams & Scores -->
+                        <div class="flex-grow grid grid-cols-1 sm:grid-cols-12 items-center gap-2">
+                            <div class="sm:col-span-7 space-y-1.5">
+                                <div class="flex items-center justify-between pr-2">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="w-6 h-6 rounded-full bg-gradient-to-br {{ m.home_badge_color }} text-[10px] font-extrabold text-white flex items-center justify-center shadow">
+                                            {{ m.home_short|slice:":3" }}
+                                        </span>
+                                        <span class="text-xs sm:text-sm font-bold text-white group-hover:text-emerald-400 transition">{{ m.home_team }}</span>
+                                    </div>
+                                    <span class="live-hscore-{{ m.id }} text-sm sm:text-base font-display font-extrabold {% if m.status == 'LIVE' %}text-emerald-400{% else %}text-white{% endif %}">
+                                        {% if m.status == 'UPCOMING' %}-{% else %}{{ m.home_score }}{% endif %}
+                                    </span>
+                                </div>
+
+                                <div class="flex items-center justify-between pr-2">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="w-6 h-6 rounded-full bg-gradient-to-br {{ m.away_badge_color }} text-[10px] font-extrabold text-white flex items-center justify-center shadow">
+                                            {{ m.away_short|slice:":3" }}
+                                        </span>
+                                        <span class="text-xs sm:text-sm font-bold text-slate-200 group-hover:text-emerald-400 transition">{{ m.away_team }}</span>
+                                    </div>
+                                    <span class="live-ascore-{{ m.id }} text-sm sm:text-base font-display font-extrabold {% if m.status == 'LIVE' %}text-emerald-400{% else %}text-white{% endif %}">
+                                        {% if m.status == 'UPCOMING' %}-{% else %}{{ m.away_score }}{% endif %}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Quick Info Preview (Stadium & Events count) -->
+                            <div class="hidden sm:flex sm:col-span-5 flex-col items-end justify-center text-right space-y-1">
+                                <span class="text-[11px] text-slate-400 truncate max-w-[180px]">
+                                    <i class="fa-solid fa-location-dot text-slate-500 mr-1"></i>{{ m.stadium }}
+                                </span>
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zely-950 border border-slate-800 group-hover:border-emerald-500/50 text-[11px] font-bold text-emerald-400 transition">
+                                    <span>Suivre le match</span>
+                                    <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Mobile Arrow -->
+                        <div class="sm:hidden shrink-0">
+                            <span class="w-8 h-8 rounded-xl bg-zely-950 border border-slate-800 flex items-center justify-center text-emerald-400 text-xs">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                {% empty %}
+                    <div class="p-8 text-center text-xs text-slate-500">Aucun match pour ce filtre.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ============================================================== -->
+        <!-- COLUMN 2 (4 COLS): LEAGUE STANDINGS & TOP SCORERS               -->
+        <!-- ============================================================== -->
+        <div class="lg:col-span-4 bg-zely-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div class="p-4 bg-zely-950 border-b border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h2 class="font-display font-bold text-sm text-white uppercase tracking-wider">Tables & Stats</h2>
+                        {% if standings_comp %}
+                        <p class="text-[11px] text-emerald-400 font-semibold">{{ standings_comp.flag_emoji }} {{ standings_comp.name }}</p>
+                        {% endif %}
+                    </div>
+                    <i class="fa-solid fa-ranking-star text-emerald-400"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-1 bg-zely-900 p-1 rounded-xl border border-slate-800 text-[11px] font-bold">
+                    <button type="button" id="btn-col3-standings" onclick="switchCol3Tab('standings')" class="py-1.5 rounded-lg bg-emerald-500 text-slate-950 transition">
+                        🏆 Classement
+                    </button>
+                    <button type="button" id="btn-col3-scorers" onclick="switchCol3Tab('scorers')" class="py-1.5 rounded-lg text-slate-400 hover:text-white transition">
+                        ⚽ Top Buteurs
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sub-panel 1: Standings -->
+            <div id="col3-panel-standings" class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-zely-950/60 text-[10px] uppercase text-slate-400 border-b border-slate-800">
+                        <tr>
+                            <th class="py-2.5 pl-3">#</th>
+                            <th class="py-2.5">Club</th>
+                            <th class="py-2.5 text-center">MJ</th>
+                            <th class="py-2.5 text-center">Diff</th>
+                            <th class="py-2.5 pr-3 text-right">Pts</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60">
+                        {% for row in standings %}
+                        <tr class="hover:bg-slate-800/40 transition">
+                            <td class="py-2.5 pl-3 font-bold {% if row.rank <= 4 %}text-emerald-400{% else %}text-slate-400{% endif %}">
+                                {{ row.rank }}
+                            </td>
+                            <td class="py-2.5 font-semibold text-white">
+                                {{ row.team_name }}
+                            </td>
+                            <td class="py-2.5 text-center text-slate-400">{{ row.played }}</td>
+                            <td class="py-2.5 text-center text-slate-300">{{ row.goal_diff }}</td>
+                            <td class="py-2.5 pr-3 text-right font-display font-extrabold text-emerald-400">{{ row.points }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="p-4 text-center text-slate-500">Classement non disponible.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Sub-panel 2: Top Scorers & Assists -->
+            <div id="col3-panel-scorers" class="hidden divide-y divide-slate-800/60">
+                {% for sc in top_scorers %}
+                <div class="p-3 hover:bg-slate-800/40 transition flex items-center justify-between gap-2.5">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-5 text-center font-display font-extrabold text-xs {% if sc.rank == 1 %}text-amber-400{% elif sc.rank <= 3 %}text-emerald-400{% else %}text-slate-500{% endif %}">
+                            {{ sc.rank }}
+                        </span>
+                        <img src="{{ sc.avatar_url }}" alt="{{ sc.player_name }}" class="w-8 h-8 rounded-full object-cover border border-slate-700">
+                        <div>
+                            <div class="text-xs font-bold text-white leading-tight">{{ sc.player_name }}</div>
+                            <div class="text-[10px] text-slate-400">{{ sc.club_name }} • {{ sc.matches_played }} MJ</div>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs font-display font-extrabold text-emerald-400">{{ sc.goals }} buts</div>
+                        <div class="text-[10px] text-cyan-400">{{ sc.assists }} passes</div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-4 text-center text-xs text-slate-500">Aucun buteur enregistré.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- 3. FOOTMERCATO CENTRAL: TRANSFER TRACKER, RELIABILITY BAROMETER & FAN VERDICT -->
+    <!-- ================================================================== -->
+    <section class="space-y-5 pt-4">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center text-slate-950 text-lg font-bold shadow-lg shadow-amber-500/20">
+                    <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 class="font-display font-bold text-2xl text-white">ZeMercato Live — Le Fil des Transferts</h2>
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            Baromètre de Fiabilité & Verdict des Fans
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-400">Transferts officiels, exclusivités Zely Mercato, accords imminents et rumeurs vérifiées</p>
+                </div>
+            </div>
+
+            <!-- Mercato Filter Pills -->
+            <div class="flex items-center gap-1.5 text-xs font-bold">
+                <a href="{% url 'sport_hub' %}" class="px-3 py-1.5 rounded-xl {% if not mercato_filter %}bg-amber-500 text-slate-950{% else %}bg-zely-900 text-slate-300 border border-slate-800{% endif %}">Tous</a>
+                <a href="{% url 'sport_hub' %}?mercato=OFFICIAL" class="px-3 py-1.5 rounded-xl {% if mercato_filter == 'OFFICIAL' %}bg-emerald-500 text-slate-950{% else %}bg-zely-900 text-emerald-400 border border-slate-800{% endif %}">Officiel ✅</a>
+                <a href="{% url 'sport_hub' %}?mercato=ADVANCED" class="px-3 py-1.5 rounded-xl {% if mercato_filter == 'ADVANCED' %}bg-orange-500 text-slate-950{% else %}bg-zely-900 text-orange-400 border border-slate-800{% endif %}">Accord proche 🔥</a>
+                <a href="{% url 'sport_hub' %}?mercato=RUMOR" class="px-3 py-1.5 rounded-xl {% if mercato_filter == 'RUMOR' %}bg-purple-500 text-white{% else %}bg-zely-900 text-purple-400 border border-slate-800{% endif %}">Rumeurs 👀</a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for tr in mercato_transfers %}
+            <div class="bg-zely-900 border border-slate-800 hover:border-amber-500/50 rounded-3xl p-5 flex flex-col justify-between space-y-4 shadow-xl transition">
+                <div class="space-y-4">
+                    <!-- Top Status & Exclu Badges -->
+                    <div class="flex items-center justify-between gap-2">
+                        <div class="flex items-center gap-1.5">
+                            {% if tr.is_exclusive %}
+                            <span class="px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase bg-red-600 text-white shadow">
+                                🚨 EXCLU ZELY
+                            </span>
+                            {% endif %}
+                            <span class="px-2.5 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-amber-400 border border-amber-500/30">
+                                {{ tr.get_status_display }}
+                            </span>
+                        </div>
+                        <span class="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-lg border border-emerald-500/30">
+                            {{ tr.transfer_fee }}
+                        </span>
+                    </div>
+
+                    <!-- Player Identity & Club Movement -->
+                    <div class="flex items-center gap-3.5">
+                        <img src="{{ tr.player_photo }}" alt="{{ tr.player_name }}" class="w-14 h-14 rounded-2xl object-cover border-2 border-amber-500/40 shrink-0">
+                        <div class="space-y-1">
+                            <h3 class="font-display font-bold text-base text-white">{{ tr.player_name }} <span class="text-xs font-normal text-slate-400">({{ tr.player_age }} ans)</span></h3>
+                            <div class="text-[11px] text-cyan-400 font-semibold">{{ tr.player_position }} • {{ tr.contract_duration }}</div>
+                            <div class="flex items-center gap-2 text-xs font-bold pt-0.5">
+                                <span class="text-slate-300">{{ tr.from_club }}</span>
+                                <i class="fa-solid fa-arrow-right text-amber-400"></i>
+                                <span class="text-emerald-400">{{ tr.to_club }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Reliability Barometer (Indice de fiabilité FootMercato style) -->
+                    <div class="bg-zely-950 p-3 rounded-2xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex items-center justify-between text-[11px]">
+                            <span class="text-slate-400 font-medium">Indice de fiabilité Mercato</span>
+                            <span class="font-extrabold {% if tr.reliability_score >= 85 %}text-emerald-400{% elif tr.reliability_score >= 60 %}text-amber-400{% else %}text-purple-400{% endif %}">
+                                {{ tr.reliability_score }}%
+                            </span>
+                        </div>
+                        <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                            <div class="h-full rounded-full {% if tr.reliability_score >= 85 %}bg-emerald-500{% elif tr.reliability_score >= 60 %}bg-amber-500{% else %}bg-purple-500{% endif %}"
+                                 style="width: {{ tr.reliability_score }}%"></div>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        {{ tr.summary }}
+                    </p>
+                </div>
+
+                <!-- Interactive Fan Verdict ("Bon coup" vs "Surcoté") -->
+                <div class="pt-3 border-t border-slate-800/80 space-y-2">
+                    <div class="flex items-center justify-between text-[11px] text-slate-400">
+                        <span>Avis des supporters :</span>
+                        <span><strong id="mercato-good-pct-{{ tr.id }}" class="text-emerald-400">{{ tr.good_deal_pct }}%</strong> Bon coup</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="voteMercato({{ tr.id }}, 'good')"
+                                class="py-1.5 px-3 rounded-xl bg-zely-950 hover:bg-emerald-950/50 border border-slate-800 hover:border-emerald-500/40 text-xs font-semibold text-emerald-400 flex items-center justify-center gap-1.5 transition">
+                            🔥 Bon coup (<span id="mercato-good-{{ tr.id }}">{{ tr.good_deal_votes }}</span>)
+                        </button>
+                        <button onclick="voteMercato({{ tr.id }}, 'overrated')"
+                                class="py-1.5 px-3 rounded-xl bg-zely-950 hover:bg-rose-950/50 border border-slate-800 hover:border-rose-500/40 text-xs font-semibold text-rose-400 flex items-center justify-center gap-1.5 transition">
+                            💸 Surcoté (<span id="mercato-bad-{{ tr.id }}">{{ tr.overrated_votes }}</span>)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- 4. ARTICLES & DÉCRYPTAGES FOOT / SPORT -->
+    <section class="space-y-4 pt-4">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="font-display font-bold text-xl text-white flex items-center gap-2">
+                <i class="fa-regular fa-newspaper text-emerald-400"></i> Décryptages, Interviews & Enquêtes Sport
+            </h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for art in sport_articles %}
+            <article class="group bg-zely-900 border border-slate-800 hover:border-emerald-500/40 rounded-2xl overflow-hidden flex flex-col justify-between shadow-lg transition">
+                <div>
+                    <div class="relative h-44 overflow-hidden">
+                        <img src="{{ art.image_url }}" alt="{{ art.title }}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                        <span class="absolute top-3 left-3 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500 text-slate-950">
+                            {{ art.category.name }}
+                        </span>
+                    </div>
+                    <div class="p-4 space-y-2">
+                        <a href="{% url 'article_detail' art.slug %}" class="block font-display font-bold text-base text-white group-hover:text-emerald-400 transition line-clamp-2">
+                            {{ art.title }}
+                        </a>
+                        <p class="text-xs text-slate-400 line-clamp-2">{{ art.summary }}</p>
+                    </div>
+                </div>
+                <div class="px-4 py-3 bg-zely-950/60 border-t border-slate-800 flex items-center justify-between text-xs">
+                    <span class="text-slate-400"><i class="fa-regular fa-comments text-emerald-400 mr-1"></i>{{ art.comments.count }} avis</span>
+                    <a href="{% url 'article_detail' art.slug %}" class="text-emerald-400 font-bold hover:underline">Lire & Débattre →</a>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+    </section>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    let currentMatchId = {% if featured_match %}{{ featured_match.id }}{% else %}null{% endif %};
+
+    function switchCol3Tab(tab) {
+        const stPanel = document.getElementById('col3-panel-standings');
+        const scPanel = document.getElementById('col3-panel-scorers');
+        const stBtn = document.getElementById('btn-col3-standings');
+        const scBtn = document.getElementById('btn-col3-scorers');
+        if (tab === 'standings') {
+            stPanel.classList.remove('hidden');
+            scPanel.classList.add('hidden');
+            stBtn.className = 'py-1.5 rounded-lg bg-emerald-500 text-slate-950 transition';
+            scBtn.className = 'py-1.5 rounded-lg text-slate-400 hover:text-white transition';
+        } else {
+            stPanel.classList.add('hidden');
+            scPanel.classList.remove('hidden');
+            scBtn.className = 'py-1.5 rounded-lg bg-emerald-500 text-slate-950 transition';
+            stBtn.className = 'py-1.5 rounded-lg text-slate-400 hover:text-white transition';
+        }
+    }
+
+    function switchMatchTab(tabName) {
+        ['events', 'stats', 'lineups'].forEach(t => {
+            const tabEl = document.getElementById(`mc-tab-${t}`);
+            const btnEl = document.getElementById(`tab-btn-${t}`);
+            if (t === tabName) {
+                tabEl.classList.remove('hidden');
+                btnEl.className = 'pb-2.5 border-b-2 border-emerald-400 text-emerald-400 transition';
+            } else {
+                tabEl.classList.add('hidden');
+                btnEl.className = 'pb-2.5 border-b-2 border-transparent text-slate-400 hover:text-white transition';
+            }
+        });
+    }
+
+    async function selectMatchCenter(matchId) {
+        currentMatchId = matchId;
+        document.querySelectorAll('.match-row').forEach(row => {
+            row.classList.remove('bg-emerald-950/30', 'border-l-4', 'border-emerald-400');
+        });
+        const activeRow = document.getElementById(`match-row-${matchId}`);
+        if (activeRow) {
+            activeRow.classList.add('bg-emerald-950/30', 'border-l-4', 'border-emerald-400');
+        }
+
+        const res = await fetch(`/api/sport/match/${matchId}/`);
+        const data = await res.json();
+        if (data.status !== 'ok') return;
+        const m = data.match;
+
+        document.getElementById('mc-comp').innerHTML = `${m.flag} ${m.competition}`;
+        document.getElementById('mc-stadium').innerHTML = `<i class="fa-solid fa-location-dot mr-1 text-emerald-400"></i>${m.stadium}`;
+        document.getElementById('mc-home-short').textContent = m.home_short;
+        document.getElementById('mc-home-name').textContent = m.home_team;
+        document.getElementById('mc-home-form').textContent = m.home_formation;
+        document.getElementById('mc-away-short').textContent = m.away_short;
+        document.getElementById('mc-away-name').textContent = m.away_team;
+        document.getElementById('mc-away-form').textContent = m.away_formation;
+        document.getElementById('mc-home-score').textContent = m.match_status === 'UPCOMING' ? '-' : m.home_score;
+        document.getElementById('mc-away-score').textContent = m.match_status === 'UPCOMING' ? '-' : m.away_score;
+        document.getElementById('mc-minute').textContent = m.minute;
+        document.getElementById('mc-channel').textContent = m.tv_channel;
+
+        // Prono labels & percentages
+        document.getElementById('prono-label-1').textContent = m.home_short;
+        document.getElementById('prono-label-2').textContent = m.away_short;
+        document.getElementById('prono-pct-1').textContent = m.home_win_pct + '%';
+        document.getElementById('prono-pct-N').textContent = m.draw_pct + '%';
+        document.getElementById('prono-pct-2').textContent = m.away_win_pct + '%';
+        document.getElementById('mc-prono-total').textContent = (m.votes_home + m.votes_draw + m.votes_away) + ' votes';
+
+        // Stats
+        document.getElementById('stat-pos-h').textContent = m.home_possession + '%';
+        document.getElementById('stat-pos-a').textContent = m.away_possession + '%';
+        document.getElementById('bar-pos-h').style.width = m.home_possession + '%';
+        document.getElementById('bar-pos-a').style.width = m.away_possession + '%';
+        document.getElementById('stat-xg-h').textContent = m.home_xg;
+        document.getElementById('stat-xg-a').textContent = m.away_xg;
+        document.getElementById('stat-shots-h').textContent = `${m.home_shots} (${m.home_shots_on_target} cadrés)`;
+        document.getElementById('stat-shots-a').textContent = `${m.away_shots} (${m.away_shots_on_target} cadrés)`;
+        document.getElementById('stat-cor-h').textContent = m.home_corners;
+        document.getElementById('stat-cor-a').textContent = m.away_corners;
+
+        // Lineups & Pitch labels
+        document.getElementById('lineup-team-h').textContent = m.home_team;
+        document.getElementById('lineup-form-h').textContent = m.home_formation;
+        document.getElementById('lineup-list-h').textContent = m.home_lineup.join(' - ');
+        document.getElementById('lineup-team-a').textContent = m.away_team;
+        document.getElementById('lineup-form-a').textContent = m.away_formation;
+        document.getElementById('lineup-list-a').textContent = m.away_lineup.join(' - ');
+        const pH = document.getElementById('pitch-label-h');
+        const pA = document.getElementById('pitch-label-a');
+        if (pH) pH.textContent = `🟢 ${m.home_short} (${m.home_formation})`;
+        if (pA) pA.textContent = `🔴 ${m.away_short} (${m.away_formation})`;
+
+        // Events
+        const evBox = document.getElementById('mc-tab-events');
+        if (m.events.length === 0) {
+            evBox.innerHTML = '<p class="text-xs text-slate-500 text-center py-4">Aucun événement majeur enregistré pour ce match.</p>';
+        } else {
+            evBox.innerHTML = m.events.map(ev => {
+                const detailHtml = ev.detail ? `<span class="text-slate-500 text-[11px]">(${ev.detail})</span>` : '';
+                if (ev.side === 'HOME') {
+                    return `
+                    <div class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-zely-950/80 border border-slate-800/80 text-xs">
+                        <div class="flex items-center gap-2.5">
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 font-extrabold">${ev.minute}'</span>
+                            <span>${ev.label}</span>
+                            <strong class="text-white">${ev.player}</strong>
+                            ${detailHtml}
+                        </div>
+                        <span class="text-[10px] font-bold text-slate-500">${m.home_short}</span>
+                    </div>`;
+                } else {
+                    return `
+                    <div class="flex items-center justify-between gap-3 p-3 rounded-2xl bg-zely-950/80 border border-slate-800/80 text-xs">
+                        <span class="text-[10px] font-bold text-slate-500">${m.away_short}</span>
+                        <div class="flex items-center gap-2.5 text-right">
+                            ${detailHtml}
+                            <strong class="text-white">${ev.player}</strong>
+                            <span>${ev.label}</span>
+                            <span class="px-2 py-0.5 rounded bg-rose-500/15 text-rose-400 font-extrabold">${ev.minute}'</span>
+                        </div>
+                    </div>`;
+                }
+            }).join('');
+        }
+    }
+
+    async function voteMatchProno(choice) {
+        if (!currentMatchId) return;
+        const res = await fetch(`/api/sport/match/${currentMatchId}/prono/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ choice })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            document.getElementById('prono-pct-1').textContent = data.home_win_pct + '%';
+            document.getElementById('prono-pct-N').textContent = data.draw_pct + '%';
+            document.getElementById('prono-pct-2').textContent = data.away_win_pct + '%';
+            document.getElementById('mc-prono-total').textContent = data.total + ' votes';
+        }
+    }
+
+    async function voteMercato(transferId, verdict) {
+        const res = await fetch(`/api/sport/mercato/${transferId}/vote/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify({ verdict })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            document.getElementById(`mercato-good-${transferId}`).textContent = data.good_deal_votes;
+            document.getElementById(`mercato-bad-${transferId}`).textContent = data.overrated_votes;
+            document.getElementById(`mercato-good-pct-${transferId}`).textContent = data.good_deal_pct + '%';
+        }
+    }
+
+    function openProvidersModal() {
+        const m = document.getElementById('providers-config-modal');
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+    }
+
+    function closeProvidersModal() {
+        const m = document.getElementById('providers-config-modal');
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+    }
+
+    async function saveProviderSettings(e) {
+        e.preventDefault();
+        const payload = {
+            active_strategy: document.getElementById('prov-strategy').value,
+            enable_espn_free: document.getElementById('prov-espn-enable').checked,
+            enable_thesportsdb_free: document.getElementById('prov-tsdb-enable').checked,
+            thesportsdb_key: document.getElementById('prov-tsdb-key').value,
+            enable_football_data_pro: document.getElementById('prov-fd-enable').checked,
+            football_data_api_key: document.getElementById('prov-fd-key').value,
+            enable_api_football_pro: document.getElementById('prov-af-enable').checked,
+            api_football_key: document.getElementById('prov-af-key').value,
+            enable_simulation_fallback: document.getElementById('prov-sim-enable').checked,
+        };
+        const res = await fetch('/api/sport/providers/config/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken'),
+            },
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        const fb = document.getElementById('prov-feedback');
+        if (data.status === 'ok') {
+            fb.className = 'p-3 rounded-xl text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+            fb.textContent = data.message;
+            fb.classList.remove('hidden');
+            pollRealTimeMatches('?force_external=1');
+        }
+    }
+
+    async function testSingleProvider(providerCode) {
+        const fb = document.getElementById('prov-feedback');
+        fb.className = 'p-3 rounded-xl text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+        fb.textContent = `Interrogation en direct du connecteur ${providerCode}...`;
+        fb.classList.remove('hidden');
+
+        const res = await fetch(`/api/sport/live-pulse/?provider=${providerCode}`);
+        const data = await res.json();
+        if (data.status === 'ok') {
+            fb.textContent = `[${data.source}] ${data.last_message || 'Synchronisation terminée.'}`;
+        }
+    }
+</script>
+
+<!-- MULTI-PROVIDER API CONFIGURATION & STATUS MODAL -->
+<div id="providers-config-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-zely-900 border border-slate-700 rounded-3xl max-w-3xl w-full overflow-hidden shadow-2xl my-8">
+        <div class="px-6 py-4 bg-gradient-to-r from-emerald-950/80 via-zely-900 to-cyan-950/60 border-b border-slate-800 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                    <i class="fa-solid fa-network-wired"></i>
+                </div>
+                <div>
+                    <h3 class="font-display font-bold text-lg text-white">Centre des Connecteurs Temps Réel (Gratuit & Pro)</h3>
+                    <p class="text-xs text-slate-400">Cascade intelligente : Meilleures solutions gratuites sans clé + Meilleures solutions Pro à plan gratuit</p>
+                </div>
+            </div>
+            <button onclick="closeProvidersModal()" class="text-slate-400 hover:text-white text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <form onsubmit="saveProviderSettings(event)" class="p-6 space-y-5 text-xs">
+            <!-- Strategy Selector -->
+            <div>
+                <label class="block font-bold text-slate-200 mb-1.5">Stratégie d'orchestration Temps Réel</label>
+                <select id="prov-strategy" class="w-full bg-zely-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-white font-semibold focus:border-emerald-500 focus:outline-none">
+                    <option value="AUTO_CASCADE" {% if provider_config.active_strategy == 'AUTO_CASCADE' %}selected{% endif %}>⚡ Cascade Intelligente (Pro Gratuit → Gratuit Sans Clé → Simulation 24/7)</option>
+                    <option value="PRO_FIRST" {% if provider_config.active_strategy == 'PRO_FIRST' %}selected{% endif %}>🏆 Priorité Solutions Pro (Football-Data.org & API-Football v3)</option>
+                    <option value="FREE_ONLY" {% if provider_config.active_strategy == 'FREE_ONLY' %}selected{% endif %}>🌍 100% Gratuit Sans Inscription (ESPN Public API + TheSportsDB)</option>
+                    <option value="SIMULATION" {% if provider_config.active_strategy == 'SIMULATION' %}selected{% endif %}>🎮 Simulateur Temps Réel Continu uniquement</option>
+                </select>
+            </div>
+
+            <!-- SECTION 1: BEST FREE SOLUTIONS (NO SIGNUP NEEDED) -->
+            <div class="space-y-3">
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400 flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check"></i> 1. Meilleures Solutions 100% Gratuites (Actives immédiatement sans clé)
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- ESPN Public Live -->
+                    <div class="p-4 rounded-2xl bg-zely-950 border border-emerald-500/30 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 font-bold text-white cursor-pointer">
+                                <input type="checkbox" id="prov-espn-enable" {% if provider_config.enable_espn_free %}checked{% endif %} class="accent-emerald-400">
+                                <span>ESPN Live Soccer API</span>
+                            </label>
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">Illimité • Sans clé</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Récupère en direct les scores, minutes et stades de Champions League, Ligue 1, Premier League, Liga et Serie A.</p>
+                        <div class="flex items-center justify-between pt-1">
+                            <span class="text-[10px] text-slate-500">Appels aujourd'hui : <strong>{{ provider_config.espn_calls_today }}</strong></span>
+                            <button type="button" onclick="testSingleProvider('ESPN')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold text-[10px]">
+                                Tester ESPN Live
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- TheSportsDB Public v1 -->
+                    <div class="p-4 rounded-2xl bg-zely-950 border border-emerald-500/30 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 font-bold text-white cursor-pointer">
+                                <input type="checkbox" id="prov-tsdb-enable" {% if provider_config.enable_thesportsdb_free %}checked{% endif %} class="accent-emerald-400">
+                                <span>TheSportsDB API v1</span>
+                            </label>
+                            <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">Clé publique « 3 »</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="prov-tsdb-key" value="{{ provider_config.thesportsdb_key }}" placeholder="Clé (défaut: 3)"
+                                   class="w-full bg-zely-900 border border-slate-800 rounded-lg px-2.5 py-1 text-[11px] text-white">
+                            <button type="button" onclick="testSingleProvider('THESPORTSDB')" class="shrink-0 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-400 font-bold text-[10px]">
+                                Tester
+                            </button>
+                        </div>
+                        <div class="text-[10px] text-slate-500">Appels aujourd'hui : <strong>{{ provider_config.thesportsdb_calls_today }}</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: BEST PRO SOLUTIONS WITH FREE FOREVER PLANS -->
+            <div class="space-y-3">
+                <div class="text-[11px] font-extrabold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-crown"></i> 2. Meilleures Solutions Pro offrant un Plan Gratuit Permanent
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <!-- Football-Data.org v4 -->
+                    <div class="p-4 rounded-2xl bg-zely-950 border border-amber-500/30 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 font-bold text-white cursor-pointer">
+                                <input type="checkbox" id="prov-fd-enable" {% if provider_config.enable_football_data_pro %}checked{% endif %} class="accent-amber-400">
+                                <span>Football-Data.org v4</span>
+                            </label>
+                            <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">Gratuit : 10 req/min</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Le meilleur plan gratuit Pro pour les 12 grands championnats européens (Scores + Classements officiels).</p>
+                        <div class="flex items-center gap-2">
+                            <input type="password" id="prov-fd-key" value="{{ provider_config.football_data_api_key }}" placeholder="Coller votre clé X-Auth-Token..."
+                                   class="w-full bg-zely-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-white">
+                            <button type="button" onclick="testSingleProvider('FOOTBALL_DATA')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[10px]">
+                                Tester
+                            </button>
+                        </div>
+                        <div class="text-[10px] text-slate-500">Appels aujourd'hui : <strong>{{ provider_config.football_data_calls_today }}</strong> (Quota: 10/min)</div>
+                    </div>
+
+                    <!-- API-Football v3 (API-Sports) -->
+                    <div class="p-4 rounded-2xl bg-zely-950 border border-amber-500/30 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 font-bold text-white cursor-pointer">
+                                <input type="checkbox" id="prov-af-enable" {% if provider_config.enable_api_football_pro %}checked{% endif %} class="accent-amber-400">
+                                <span>API-Football v3 (API-Sports)</span>
+                            </label>
+                            <span class="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px] font-bold">Gratuit : 100 req/jour</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">Couvre +1 000 ligues mondiales, événements minute par minute, compositions, statistiques xG et Mercato.</p>
+                        <div class="flex items-center gap-2">
+                            <input type="password" id="prov-af-key" value="{{ provider_config.api_football_key }}" placeholder="Coller votre clé x-apisports-key..."
+                                   class="w-full bg-zely-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-[11px] text-white">
+                            <button type="button" onclick="testSingleProvider('API_FOOTBALL')" class="shrink-0 px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 font-bold text-[10px]">
+                                Tester
+                            </button>
+                        </div>
+                        <div class="text-[10px] text-slate-500">Appels aujourd'hui : <strong>{{ provider_config.api_football_calls_today }} / 100</strong></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fallback toggle -->
+            <label class="flex items-center justify-between p-3.5 rounded-2xl bg-zely-950 border border-slate-800 cursor-pointer">
+                <div>
+                    <div class="font-bold text-white">Relais Simulateur Temps Réel 24/7 (Fallback automatique)</div>
+                    <div class="text-[11px] text-slate-400">Maintient l'évolution des minutes, tirs, xG et alertes buts même lorsqu'aucun match officiel ne se joue à cette heure.</div>
+                </div>
+                <input type="checkbox" id="prov-sim-enable" {% if provider_config.enable_simulation_fallback %}checked{% endif %} class="accent-cyan-400 w-4 h-4">
+            </label>
+
+            <div id="prov-feedback" class="hidden p-3 rounded-xl text-xs font-bold"></div>
+
+            <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+                <button type="button" onclick="closeProvidersModal()" class="px-4 py-2 rounded-xl border border-slate-700 text-slate-300 hover:bg-slate-800">
+                    Fermer
+                </button>
+                <button type="submit" class="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-500 text-slate-950 font-display font-bold shadow-lg cursor-pointer">
+                    Enregistrer & Synchroniser
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
